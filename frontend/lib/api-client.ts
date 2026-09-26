@@ -5,6 +5,19 @@ import { ApiErrorResponse } from "@/types/auth";
 // Centralized API base URL — every API call in the app (axios client below, and any plain
 // `fetch` in server components that can't use the browser-oriented axios client) resolves the
 // backend origin from here, so there's exactly one place that needs to change per environment.
+//
+// The localhost fallback only applies outside production (local `next dev`/`next build` with no
+// .env.local still works). In a production build, a missing NEXT_PUBLIC_API_URL throws instead of
+// silently resolving to a URL that can never work from a deployed browser — a wrong-but-present
+// URL produces a confusing CORS error with no indication of the real cause; a build/render
+// failure with this message is unambiguous.
+if (!process.env.NEXT_PUBLIC_API_URL && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "NEXT_PUBLIC_API_URL is not set. Set it in the Vercel project's Environment Variables " +
+      "(Production) to your deployed backend's URL, e.g. https://ssr-institute-portal.onrender.com/api/v1, then redeploy."
+  );
+}
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api/v1";
 
 export const apiClient = axios.create({
