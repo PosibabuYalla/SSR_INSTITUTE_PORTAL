@@ -12,11 +12,12 @@ import {
 
 const FEES_KEY = "fees";
 
-export function useFeeStatus(query: FeeStatusQuery) {
+export function useFeeStatus(query: FeeStatusQuery, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: [FEES_KEY, "status", query],
     queryFn: () => feeService.listStatus(query),
     placeholderData: (previous) => previous,
+    enabled: options.enabled ?? true,
   });
 }
 
@@ -54,11 +55,19 @@ export function useRecordPayment() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: RecordPaymentInput) => feeService.recordPayment(input),
-    onSuccess: () => {
-      toast.success("Payment recorded");
-      queryClient.invalidateQueries({ queryKey: [FEES_KEY] });
+    onSuccess: (payment) => {
+      if (payment.studentEmailSent) {
+        toast.success("Payment recorded", { description: "A confirmation email was sent to the student." });
+      } else {
+        toast.success("Payment recorded");
+        toast.warning("The confirmation email could not be sent.", {
+          description: "The payment is still recorded. Check the server's SMTP settings, or notify the student by WhatsApp.",
+        });
+      }
     },
     onError: (error) => toast.error(extractErrorMessage(error)),
+    // Refetch either way so the remaining fee shown in the form is never stale after a 400/409.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: [FEES_KEY] }),
   });
 }
 
@@ -163,7 +172,16 @@ export function useApprovePaymentRequest() {
   return useMutation({
     mutationFn: ({ id, amount }: { id: string; amount?: number }) =>
       feeService.approvePaymentRequest(id, amount),
-    onSuccess: () => toast.success("Payment approved"),
+    onSuccess: (request) => {
+      if (request.studentEmailSent) {
+        toast.success("Payment approved", { description: "A confirmation email was sent to the student." });
+      } else {
+        toast.success("Payment approved");
+        toast.warning("The confirmation email could not be sent.", {
+          description: "The payment is still approved. Check the server's SMTP settings, or notify the student by WhatsApp.",
+        });
+      }
+    },
     onError: (error) => toast.error(extractErrorMessage(error)),
     onSettled: () => queryClient.invalidateQueries({ queryKey: [FEES_KEY] }),
   });

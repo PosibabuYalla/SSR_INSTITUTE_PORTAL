@@ -10,6 +10,7 @@ import {
   PaymentRequestListQuery,
   PaymentRequestRecord,
   PaymentSettings,
+  RecordedPayment,
   RecordPaymentInput,
 } from "@/types/fee";
 
@@ -29,7 +30,7 @@ export const feeService = {
   },
 
   async recordPayment(input: RecordPaymentInput) {
-    const { data } = await apiClient.post<ApiSuccessResponse<PaymentRecord>>("/fees/payments", input);
+    const { data } = await apiClient.post<ApiSuccessResponse<RecordedPayment>>("/fees/payments", input);
     return data.data;
   },
 

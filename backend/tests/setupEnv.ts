@@ -6,6 +6,9 @@ process.env.MONGODB_URI = "mongodb://127.0.0.1:27017/unused-placeholder";
 process.env.JWT_SECRET = "test-jwt-secret-do-not-use-in-prod";
 process.env.JWT_REFRESH_SECRET = "test-jwt-refresh-secret-do-not-use-in-prod";
 process.env.CLIENT_URL = "http://localhost:3000";
+// Never send real email from tests, even if the developer's backend/.env configures SMTP
+// (dotenv doesn't override variables that are already set).
+process.env.SMTP_HOST = "";
 
 // Pin the in-memory mongod binary version — mongodb-memory-server's default/latest pairing has
 // a known handshake incompatibility ("Missing required sub-document 'driver'") with its own

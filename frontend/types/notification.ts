@@ -9,7 +9,8 @@ export type NotificationType =
   | "ANNOUNCEMENT"
   | "PAYMENT_SUBMITTED"
   | "PAYMENT_APPROVED"
-  | "PAYMENT_REJECTED";
+  | "PAYMENT_REJECTED"
+  | "PAYMENT_RECORDED";
 
 export interface AppNotification {
   _id: string;

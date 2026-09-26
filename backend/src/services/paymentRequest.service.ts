@@ -9,6 +9,8 @@ import { assertValidImage } from "../utils/imageValidation";
 import { MAX_PAYMENT_IMAGE_BYTES } from "../middleware/upload";
 import { recordAudit } from "./auditLog.service";
 import { notifyUser, notifyUsers } from "./notification.service";
+import { emailService } from "./email.service";
+import { Batch } from "../models/Batch";
 import { deletePrivateFile, readPrivateFile, uploadPrivateImage } from "./upload.service";
 import { generateReceiptNumber, getEnrollmentBalance, roundMoney } from "./fee.service";
 import {
@@ -318,7 +320,36 @@ export async function approvePaymentRequest(
     })
   );
 
-  return toPublicRequest(result.toObject());
+  const studentEmailSent = await sendPaymentApprovedEmail(result);
+
+  return { ...toPublicRequest(result.toObject()), studentEmailSent };
+}
+
+/** Emails the student's registered address after an approval has committed. Best-effort: a
+ * failure is logged and reported back as `false`, never as an error. */
+async function sendPaymentApprovedEmail(approved: IPaymentRequest): Promise<boolean> {
+  try {
+    const [student, payment, batch] = await Promise.all([
+      User.findById(approved.student).select("name email").lean(),
+      Payment.findById(approved.payment).select("receiptNumber paymentDate").lean(),
+      Batch.findById(approved.batch).select("name").lean(),
+    ]);
+    if (!student?.email) return false;
+
+    return await emailService.sendPaymentApproved(student.email, {
+      name: student.name,
+      courseName: approved.courseName,
+      batchName: batch?.name,
+      amount: approved.approvedAmount ?? approved.amount,
+      paidAfterApproval: approved.paidAfterApproval ?? 0,
+      remainingAfterApproval: approved.remainingAfterApproval ?? 0,
+      receiptNumber: payment?.receiptNumber,
+      paymentDate: payment?.paymentDate ?? approved.submittedAt,
+    });
+  } catch (error) {
+    logger.error("Failed to send payment-approved email", error);
+    return false;
+  }
 }
 
 /** PENDING → REJECTED, as a single conditional update so it can't clobber an approval. */

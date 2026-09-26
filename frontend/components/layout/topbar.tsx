@@ -75,6 +75,7 @@ const NOTIFICATION_ICON: Record<NotificationType, { icon: typeof Bell; chip: str
   PAYMENT_SUBMITTED: { icon: Wallet, chip: "bg-secondary/10 text-secondary" },
   PAYMENT_APPROVED: { icon: Wallet, chip: "bg-status-good/10 text-status-good" },
   PAYMENT_REJECTED: { icon: Wallet, chip: "bg-destructive/10 text-destructive" },
+  PAYMENT_RECORDED: { icon: Wallet, chip: "bg-status-good/10 text-status-good" },
 };
 
 function NotificationRow({

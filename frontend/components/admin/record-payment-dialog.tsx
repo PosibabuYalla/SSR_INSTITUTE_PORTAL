@@ -32,7 +32,7 @@ import {
 import { recordPaymentFormSchema, RecordPaymentFormValues } from "@/schemas/fee.schema";
 import { useBatches } from "@/hooks/useBatches";
 import { useBatchStudents } from "@/hooks/useBatches";
-import { useRecordPayment } from "@/hooks/useFees";
+import { useFeeStatus, useRecordPayment } from "@/hooks/useFees";
 
 interface RecordPaymentDialogProps {
   open: boolean;
@@ -41,6 +41,10 @@ interface RecordPaymentDialogProps {
 
 const PAYMENT_METHODS = ["CASH", "CARD", "UPI", "BANK_TRANSFER", "OTHER"] as const;
 
+function inr(amount: number) {
+  return `₹${amount.toLocaleString("en-IN")}`;
+}
+
 export function RecordPaymentDialog({ open, onOpenChange }: RecordPaymentDialogProps) {
   const form = useForm<RecordPaymentFormValues>({
     resolver: zodResolver(recordPaymentFormSchema),
@@ -48,7 +52,8 @@ export function RecordPaymentDialog({ open, onOpenChange }: RecordPaymentDialogP
       batch: "",
       student: "",
       amount: 0,
-      paymentMethod: "UPI",
+      // UPI screenshots go through verification; this form is mostly used at the counter.
+      paymentMethod: "CASH",
       paymentDate: "",
       transactionRef: "",
       notes: "",
@@ -59,6 +64,18 @@ export function RecordPaymentDialog({ open, onOpenChange }: RecordPaymentDialogP
   const batches = batchData?.batches ?? [];
   const selectedBatch = form.watch("batch");
   const { data: students } = useBatchStudents(selectedBatch || null);
+  const selectedStudent = form.watch("student");
+  const amount = Number(form.watch("amount"));
+
+  // The selected student's live balance — guidance only; the backend re-checks it.
+  const { data: feeData, isFetching: isFetchingFee } = useFeeStatus(
+    { page: 1, limit: 100, batch: selectedBatch || undefined },
+    { enabled: open && !!selectedBatch }
+  );
+  const feeRow = selectedStudent ? feeData?.rows.find((r) => r.student._id === selectedStudent) : undefined;
+  const amountDue = feeRow?.amountDue;
+  const exceedsDue = amountDue !== undefined && amount > amountDue;
+  const fullyPaid = amountDue !== undefined && amountDue <= 0;
 
   const recordMutation = useRecordPayment();
 
@@ -71,6 +88,10 @@ export function RecordPaymentDialog({ open, onOpenChange }: RecordPaymentDialogP
   }, [selectedBatch, form]);
 
   function handleSubmit(values: RecordPaymentFormValues) {
+    if (amountDue !== undefined && values.amount > amountDue) {
+      form.setError("amount", { message: `Cannot exceed the remaining fee of ${inr(amountDue)}` });
+      return;
+    }
     recordMutation.mutate(
       {
         student: values.student,
@@ -91,7 +112,8 @@ export function RecordPaymentDialog({ open, onOpenChange }: RecordPaymentDialogP
         <DialogHeader>
           <DialogTitle>Record payment</DialogTitle>
           <DialogDescription>
-            The student must already be enrolled in the selected batch.
+            For cash and other payments made at the institute. The amount can&apos;t exceed the
+            student&apos;s remaining fee, and the student is notified by email.
           </DialogDescription>
         </DialogHeader>
 
@@ -149,6 +171,36 @@ export function RecordPaymentDialog({ open, onOpenChange }: RecordPaymentDialogP
               )}
             />
 
+            {selectedStudent && (
+              <div className="rounded-xl border border-border p-3 text-sm">
+                {feeRow ? (
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <p className="font-semibold text-foreground">{inr(feeRow.finalFee)}</p>
+                      <p className="text-[11px] text-muted-foreground">Total fee</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-status-good">{inr(feeRow.amountPaid)}</p>
+                      <p className="text-[11px] text-muted-foreground">Paid</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-accent">{inr(feeRow.amountDue)}</p>
+                      <p className="text-[11px] text-muted-foreground">Remaining</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-center text-xs text-muted-foreground">
+                    {isFetchingFee ? "Loading fee details…" : "Fee details unavailable."}
+                  </p>
+                )}
+                {fullyPaid && (
+                  <p className="mt-2 text-center text-xs font-medium text-status-good">
+                    This student&apos;s fee is already fully paid.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -157,9 +209,21 @@ export function RecordPaymentDialog({ open, onOpenChange }: RecordPaymentDialogP
                   <FormItem>
                     <FormLabel>Amount (₹)</FormLabel>
                     <FormControl>
-                      <Input type="number" min={1} {...field} />
+                      <Input type="number" min={0.01} step="0.01" max={amountDue} {...field} />
                     </FormControl>
                     <FormMessage />
+                    {exceedsDue && !form.formState.errors.amount && (
+                      <p className="text-xs text-destructive">Cannot exceed the remaining fee of {inr(amountDue)}</p>
+                    )}
+                    {amountDue !== undefined && amountDue > 0 && !exceedsDue && (
+                      <button
+                        type="button"
+                        className="text-left text-xs text-secondary hover:underline"
+                        onClick={() => form.setValue("amount", amountDue, { shouldValidate: true })}
+                      >
+                        Fill remaining ({inr(amountDue)})
+                      </button>
+                    )}
                   </FormItem>
                 )}
               />
@@ -218,7 +282,11 @@ export function RecordPaymentDialog({ open, onOpenChange }: RecordPaymentDialogP
             />
 
             <DialogFooter>
-              <Button type="submit" disabled={recordMutation.isPending} className="w-full">
+              <Button
+                type="submit"
+                disabled={recordMutation.isPending || exceedsDue || fullyPaid}
+                className="w-full"
+              >
                 {recordMutation.isPending ? "Recording..." : "Record payment"}
               </Button>
             </DialogFooter>

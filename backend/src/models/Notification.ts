@@ -11,7 +11,8 @@ export type NotificationType =
   | "ANNOUNCEMENT"
   | "PAYMENT_SUBMITTED"
   | "PAYMENT_APPROVED"
-  | "PAYMENT_REJECTED";
+  | "PAYMENT_REJECTED"
+  | "PAYMENT_RECORDED";
 
 export interface INotification extends Document {
   _id: Types.ObjectId;
@@ -43,6 +44,7 @@ const notificationSchema = new Schema<INotification>(
         "PAYMENT_SUBMITTED",
         "PAYMENT_APPROVED",
         "PAYMENT_REJECTED",
+        "PAYMENT_RECORDED",
       ],
       required: true,
     },

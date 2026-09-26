@@ -5,10 +5,19 @@ const OBJECT_ID = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid id");
 const PAYMENT_METHODS = ["CASH", "CARD", "UPI", "BANK_TRANSFER", "OTHER"] as const;
 const PAYMENT_STATUSES = ["PAID", "PARTIALLY_PAID", "PENDING"] as const;
 
+/** Money in rupees: positive, finite, at most 2 decimal places. Used by every write that moves money. */
+const RUPEE_AMOUNT = z.coerce
+  .number()
+  .finite()
+  .positive("Amount must be greater than zero")
+  .max(10_000_000, "Amount is too large")
+  // Tolerance, not ===, so values like 0.29 (28.999…96 after ×100) aren't wrongly rejected.
+  .refine((n) => Math.abs(n * 100 - Math.round(n * 100)) < 1e-6, "Amount can have at most 2 decimal places");
+
 export const recordPaymentSchema = z.object({
   student: OBJECT_ID,
   batch: OBJECT_ID,
-  amount: z.coerce.number().positive("Amount must be greater than zero"),
+  amount: RUPEE_AMOUNT,
   paymentDate: z.coerce.date().optional(),
   paymentMethod: z.enum(PAYMENT_METHODS),
   transactionRef: z.string().trim().max(100).optional(),
@@ -47,14 +56,6 @@ export type ListFeeStatusQuery = z.infer<typeof listFeeStatusQuerySchema>;
 // silently stripped, so tampering is visible and never half-applied.
 
 const PAYMENT_REQUEST_STATUSES = ["PENDING", "APPROVED", "REJECTED"] as const;
-const RUPEE_AMOUNT = z.coerce
-  .number()
-  .finite()
-  .positive("Amount must be greater than zero")
-  .max(10_000_000, "Amount is too large")
-  // Tolerance, not ===, so values like 0.29 (28.999…96 after ×100) aren't wrongly rejected.
-  .refine((n) => Math.abs(n * 100 - Math.round(n * 100)) < 1e-6, "Amount can have at most 2 decimal places");
-
 /** Multipart text fields that accompany the screenshot. */
 export const submitPaymentRequestSchema = z
   .object({

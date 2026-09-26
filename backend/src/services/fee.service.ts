@@ -1,11 +1,16 @@
 import { searchRegex } from "../utils/searchRegex";
-import { ClientSession, FilterQuery, Types } from "mongoose";
+import mongoose, { ClientSession, FilterQuery, Types } from "mongoose";
 import { Payment, IPayment } from "../models/Payment";
 import { Enrollment, IEnrollment } from "../models/Enrollment";
 import { Course, ICourse } from "../models/Course";
 import { PaymentRequest } from "../models/PaymentRequest";
+import { User } from "../models/User";
+import { Batch } from "../models/Batch";
 import { ApiError } from "../utils/ApiError";
+import { logger } from "../utils/logger";
 import { recordAudit } from "./auditLog.service";
+import { notifyUser } from "./notification.service";
+import { emailService } from "./email.service";
 import {
   ListFeeStatusQuery,
   ListPaymentsQuery,
@@ -73,34 +78,123 @@ export async function getEnrollmentBalance(
   return { enrollment, course, finalFee, amountPaid, amountDue: roundMoney(Math.max(0, finalFee - amountPaid)) };
 }
 
+/**
+ * Admin-recorded offline payment (cash, card, bank transfer, ...). Capped at the enrollment's
+ * current outstanding balance. The check and the ledger insert run in one transaction that
+ * first writes to the enrollment, so two admins recording at the same moment conflict and the
+ * retry re-reads the balance — the cap can't be exceeded by a race.
+ */
 export async function recordPayment(adminId: string, input: RecordPaymentInput) {
-  const enrollment = await Enrollment.findOne({ student: input.student, batch: input.batch });
-  if (!enrollment) {
+  const enrollmentRef = await Enrollment.findOne({ student: input.student, batch: input.batch })
+    .select("_id")
+    .lean();
+  if (!enrollmentRef) {
     throw ApiError.badRequest("This student is not enrolled in the selected batch");
   }
 
-  const payment = await Payment.create({
-    student: input.student,
-    batch: input.batch,
-    course: enrollment.course,
-    amount: input.amount,
-    paymentDate: input.paymentDate ?? new Date(),
-    paymentMethod: input.paymentMethod,
-    transactionRef: input.transactionRef,
-    notes: input.notes,
-    receiptNumber: generateReceiptNumber(),
-    recordedBy: adminId,
-  });
+  let payment: IPayment | null = null;
+  let balance: EnrollmentBalance | null = null;
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      await Enrollment.updateOne({ _id: enrollmentRef._id }, { $set: { updatedAt: new Date() } }, { session });
+      balance = await getEnrollmentBalance(enrollmentRef._id, { session });
+      if (balance.amountDue <= 0) {
+        throw ApiError.conflict("The fee for this enrollment is already fully paid");
+      }
+      if (input.amount > balance.amountDue) {
+        throw ApiError.badRequest(`Amount cannot exceed the remaining fee of ${formatInr(balance.amountDue)}`);
+      }
+
+      [payment] = await Payment.create(
+        [
+          {
+            student: input.student,
+            batch: input.batch,
+            course: balance.enrollment.course,
+            amount: input.amount,
+            paymentDate: input.paymentDate ?? new Date(),
+            paymentMethod: input.paymentMethod,
+            transactionRef: input.transactionRef,
+            notes: input.notes,
+            receiptNumber: generateReceiptNumber(),
+            recordedBy: adminId,
+          },
+        ],
+        { session }
+      );
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  const saved = payment as unknown as IPayment;
+  const before = balance as unknown as EnrollmentBalance;
+  const paidAfterPayment = roundMoney(before.amountPaid + saved.amount);
+  const remainingAfterPayment = roundMoney(Math.max(0, before.finalFee - paidAfterPayment));
 
   await recordAudit({
     userId: adminId,
     action: "PAYMENT_RECORDED",
     entity: "Payment",
-    entityId: payment._id,
-    metadata: { student: input.student, batch: input.batch, amount: input.amount },
+    entityId: saved._id,
+    metadata: { student: input.student, batch: input.batch, amount: input.amount, method: input.paymentMethod },
   });
 
-  return payment;
+  const studentEmailSent = await notifyRecordedPayment(saved, before.course.name, paidAfterPayment, remainingAfterPayment);
+
+  return { ...saved.toObject(), paidAfterPayment, remainingAfterPayment, studentEmailSent };
+}
+
+/** In-app notification + email for an admin-recorded payment. Both are side effects of a
+ * committed ledger row, so failures are logged and never fail the request. Returns whether the
+ * email reached the SMTP server. */
+async function notifyRecordedPayment(
+  payment: IPayment,
+  courseName: string,
+  paidAfterPayment: number,
+  remainingAfterPayment: number
+): Promise<boolean> {
+  const fullyPaid = remainingAfterPayment <= 0;
+  const method = payment.paymentMethod === "CASH" ? "cash payment" : "payment";
+  try {
+    await notifyUser(String(payment.student), {
+      type: "PAYMENT_RECORDED",
+      title: fullyPaid ? "Course Fee Fully Paid" : "Payment Received",
+      message: fullyPaid
+        ? `Your ${method} of ${formatInr(payment.amount)} for ${courseName} has been recorded. Your course fee is now fully paid.`
+        : `Your ${method} of ${formatInr(payment.amount)} for ${courseName} has been recorded. Paid: ${formatInr(paidAfterPayment)} · Remaining: ${formatInr(remainingAfterPayment)}.`,
+      link: "/student/fees",
+    });
+  } catch (error) {
+    logger.error("Failed to create payment-recorded notification", error);
+  }
+
+  try {
+    const [student, batch] = await Promise.all([
+      User.findById(payment.student).select("name email").lean(),
+      Batch.findById(payment.batch).select("name").lean(),
+    ]);
+    if (!student?.email) return false;
+    return await emailService.sendPaymentRecorded(student.email, {
+      name: student.name,
+      courseName,
+      batchName: batch?.name,
+      amount: payment.amount,
+      paidAfterApproval: paidAfterPayment,
+      remainingAfterApproval: remainingAfterPayment,
+      receiptNumber: payment.receiptNumber,
+      paymentDate: payment.paymentDate,
+      paymentMethod: payment.paymentMethod,
+    });
+  } catch (error) {
+    logger.error("Failed to send payment-recorded email", error);
+    return false;
+  }
+}
+
+function formatInr(amount: number): string {
+  return `₹${amount.toLocaleString("en-IN")}`;
 }
 
 export async function listPayments(query: ListPaymentsQuery) {

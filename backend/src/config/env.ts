@@ -57,7 +57,7 @@ export const env = {
    * exactly CLIENT_URL — no implicit localhost access. */
   corsOrigins,
 
-  emailFrom: process.env.EMAIL_FROM ?? "no-reply@ssrinstitute.in",
+  emailFrom: process.env.EMAIL_FROM || "SSR Institute <smartskillsrecruitment@gmail.com>",
   smtp: {
     host: process.env.SMTP_HOST ?? "",
     port: Number(process.env.SMTP_PORT ?? 587),

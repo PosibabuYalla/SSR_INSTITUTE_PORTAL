@@ -49,6 +49,13 @@ export interface PaymentListQuery {
   paymentMethod?: PaymentMethod;
 }
 
+/** Response of POST /fees/payments. */
+export interface RecordedPayment extends PaymentRecord {
+  paidAfterPayment: number;
+  remainingAfterPayment: number;
+  studentEmailSent: boolean;
+}
+
 export interface RecordPaymentInput {
   student: string;
   batch: string;
@@ -92,6 +99,8 @@ export interface PaymentRequestRecord {
   remainingAfterApproval?: number;
   rejectionReason?: string;
   hasScreenshot: boolean;
+  /** Only on the approve response: whether the confirmation email reached the SMTP server. */
+  studentEmailSent?: boolean;
   createdAt: string;
   updatedAt: string;
 }
