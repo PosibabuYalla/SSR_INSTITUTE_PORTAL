@@ -2,7 +2,10 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "@/store/auth-store";
 import { ApiErrorResponse } from "@/types/auth";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api/v1";
+// Centralized API base URL — every API call in the app (axios client below, and any plain
+// `fetch` in server components that can't use the browser-oriented axios client) resolves the
+// backend origin from here, so there's exactly one place that needs to change per environment.
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api/v1";
 
 export const apiClient = axios.create({
   baseURL: API_URL,

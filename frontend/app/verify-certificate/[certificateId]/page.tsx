@@ -1,8 +1,7 @@
 import { GraduationCap, ShieldAlert, ShieldCheck, ShieldX } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api/v1";
+import { API_URL } from "@/lib/api-client";
 
 interface VerifiedCertificate {
   certificateNumber: string;
