@@ -347,3 +347,168 @@
       );
   }
 }
+
+/* ---- Toasts (sonner) — "ink ticket" ----
+ * An ink ticket with one clipped corner, a dot-grid texture fading in on the right, a glow
+ * behind the icon, and a countdown ring around it that drains over the toast's lifetime
+ * (paused while hovered). A small eyebrow label names the outcome. White ticket in light mode, ink in dark.
+ * Selectors carry sonner's own attributes so they outrank its injected styles. */
+@property --ssr-toast-left {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 360deg;
+}
+
+@keyframes ssr-toast-countdown {
+  from { --ssr-toast-left: 360deg; }
+  to { --ssr-toast-left: 0deg; }
+}
+
+@keyframes ssr-toast-spin {
+  to { transform: rotate(360deg); }
+}
+
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-styled="true"] {
+  --toast-accent: #64748b;
+  --toast-surface: #ffffff;
+  --toast-text: #0f172a;
+  --toast-muted: #64748b;
+  --toast-dots: rgba(15, 23, 42, 0.08);
+  /* Keep in sync with the Toaster's `duration` in app/layout.tsx. */
+  --toast-life: 4000ms;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 40px 14px 14px;
+  color: var(--toast-text);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  /* One sharp corner, toward the screen edge the toasts come from. */
+  border-radius: 20px 6px 20px 20px;
+  background:
+    radial-gradient(140px circle at 0% 50%, color-mix(in oklch, var(--toast-accent) 26%, transparent), transparent 70%),
+    linear-gradient(100deg, var(--toast-surface) 50%, color-mix(in oklch, var(--toast-surface) 55%, transparent) 100%),
+    radial-gradient(var(--toast-dots) 1px, transparent 1.4px) 0 0 / 9px 9px,
+    var(--toast-surface);
+  box-shadow:
+    0 18px 40px -16px rgba(15, 23, 42, 0.28),
+    0 3px 8px -3px rgba(15, 23, 42, 0.12);
+}
+
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-type="success"] { --toast-accent: #059669; }
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-type="error"] { --toast-accent: #e11d48; }
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-type="warning"] { --toast-accent: #d97706; }
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-type="info"] { --toast-accent: #0092b5; }
+
+/* Icon: glowing pebble wrapped in the countdown ring. */
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-styled="true"] [data-icon] {
+  width: 38px;
+  height: 38px;
+  margin: 0;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--toast-accent);
+  background: color-mix(in oklch, var(--toast-accent) 16%, transparent);
+  box-shadow: 0 0 22px -4px color-mix(in oklch, var(--toast-accent) 70%, transparent);
+}
+
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-styled="true"] [data-icon] svg {
+  margin: 0;
+}
+
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-styled="true"] [data-icon]::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 999px;
+  background: conic-gradient(
+    var(--toast-accent) var(--ssr-toast-left),
+    color-mix(in oklch, var(--toast-accent) 16%, transparent) 0
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+  animation: ssr-toast-countdown var(--toast-life) linear forwards;
+}
+
+/* Sonner pauses its timers while the stack is hovered (expanded) — pause the ring with it. */
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-expanded="true"] [data-icon]::before {
+  animation-play-state: paused;
+}
+
+/* Loading has no fixed lifetime: a spinning arc instead of a countdown. */
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-type="loading"] [data-icon]::before {
+  background: conic-gradient(var(--toast-accent) 90deg, transparent 0);
+  animation: ssr-toast-spin 900ms linear infinite;
+}
+
+/* Eyebrow label naming the outcome. */
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-styled="true"] [data-title]::before {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--toast-accent);
+}
+
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-type="success"] [data-title]::before { content: "Done"; }
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-type="error"] [data-title]::before { content: "Oops"; }
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-type="warning"] [data-title]::before { content: "Heads up"; }
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-type="info"] [data-title]::before { content: "FYI"; }
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-type="loading"] [data-title]::before { content: "Working"; }
+
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-styled="true"] [data-title] {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-styled="true"] [data-description] {
+  margin-top: 3px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--toast-muted);
+}
+
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-styled="true"] [data-close-button] {
+  left: auto;
+  right: 10px;
+  top: 10px;
+  width: 22px;
+  height: 22px;
+  transform: none;
+  border: none;
+  background: transparent;
+  color: var(--toast-muted);
+  opacity: 0.7;
+}
+
+[data-sonner-toaster] .ssr-toast[data-sonner-toast][data-styled="true"] [data-close-button]:hover {
+  opacity: 1;
+  color: var(--toast-text);
+  background: color-mix(in oklch, var(--toast-text) 10%, transparent);
+}
+
+/* Dark mode: ink ticket with brighter accents. */
+.dark [data-sonner-toaster] .ssr-toast[data-sonner-toast][data-styled="true"] {
+  --toast-accent: #94a3b8;
+  --toast-surface: #111827;
+  --toast-text: #f8fafc;
+  --toast-muted: #94a3b8;
+  --toast-dots: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 18px 40px -16px rgba(0, 0, 0, 0.7),
+    0 3px 8px -3px rgba(0, 0, 0, 0.4);
+}
+
+.dark [data-sonner-toaster] .ssr-toast[data-sonner-toast][data-type="success"] { --toast-accent: #34d399; }
+.dark [data-sonner-toaster] .ssr-toast[data-sonner-toast][data-type="error"] { --toast-accent: #fb7185; }
+.dark [data-sonner-toaster] .ssr-toast[data-sonner-toast][data-type="warning"] { --toast-accent: #fbbf24; }
+.dark [data-sonner-toaster] .ssr-toast[data-sonner-toast][data-type="info"] { --toast-accent: #38bdf8; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toaster] .ssr-toast[data-sonner-toast] [data-icon]::before {
+    animation: none;
+  }
+}

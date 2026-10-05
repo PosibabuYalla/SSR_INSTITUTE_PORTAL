@@ -33,7 +33,7 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: (input: TaskFormInput) => taskService.create(input),
     onSuccess: () => {
-      toast.success("Task created");
+      toast.success("Task created", { description: "Students in the batch can see it once it's published." });
       queryClient.invalidateQueries({ queryKey: [KEY] });
     },
     onError: (error) => toast.error(extractErrorMessage(error)),
@@ -111,7 +111,7 @@ export function useSubmitTask(taskId: string) {
   return useMutation({
     mutationFn: (input: SubmitTaskInput) => taskService.submitTask(taskId, input),
     onSuccess: () => {
-      toast.success("Task submitted");
+      toast.success("Task submitted", { description: "Your trainer has been notified and will review it soon." });
       queryClient.invalidateQueries({ queryKey: [KEY] });
     },
     onError: (error) => {

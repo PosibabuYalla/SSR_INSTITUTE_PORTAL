@@ -47,7 +47,9 @@ export function useLogin() {
       // seed the /auth/me cache with it (it would be treated as fresh and the profile page would
       // show empty details); drop any cached user so the full record is fetched.
       queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY });
-      toast.success("Welcome back!");
+      toast.success(`Welcome back, ${data.user.name.split(" ")[0]}!`, {
+        description: "You're signed in. Taking you to your dashboard…",
+      });
       router.push(roleHomePath(data.user.role));
     },
     onError: (error) => {
