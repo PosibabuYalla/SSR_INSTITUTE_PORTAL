@@ -39,10 +39,16 @@ export async function getStudentDashboard(studentId: string) {
     primaryEnrollment
       ? getAttendanceSummary(String((primaryEnrollment.batch as { _id: unknown })._id), studentId, "STUDENT")
       : Promise.resolve([]),
-    ClassSchedule.find({ batch: { $in: batchIds }, date: { $gte: new Date() } })
+    // Class dates are stored as date-only (midnight), so `>= now` would drop
+    // today's classes. Look back 24h to cover "today" in any client timezone;
+    // the client narrows this down to today/upcoming in its local time.
+    ClassSchedule.find({
+      batch: { $in: batchIds },
+      date: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    })
       .populate("batch", "name")
-      .sort({ date: 1 })
-      .limit(5)
+      .sort({ date: 1, startTime: 1 })
+      .limit(10)
       .lean(),
     Submission.countDocuments({ student: studentId, task: { $in: publishedTaskIds } }),
     MockInterview.countDocuments({ student: studentId, date: { $gte: new Date() } }),

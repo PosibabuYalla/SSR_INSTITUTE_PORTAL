@@ -14,6 +14,7 @@ import { LoginMascot } from "@/components/auth/login/login-mascot";
 import styles from "@/components/auth/login/login.module.css";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -214,7 +215,7 @@ export default function RegisterStudentPage() {
                     <FormItem>
                       <FormLabel>Date of birth</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <DatePicker {...field} yearNavigation disableFuture placeholder="Select date of birth" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

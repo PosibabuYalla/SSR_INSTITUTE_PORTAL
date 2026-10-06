@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -248,7 +249,7 @@ export function JobFormSheet({ open, onOpenChange, job, isSubmitting, onSubmit }
                   <FormItem>
                     <FormLabel>Application deadline</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DatePicker {...field} showShortcuts placeholder="Select deadline" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

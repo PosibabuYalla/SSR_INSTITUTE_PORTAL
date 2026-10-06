@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { format, isFuture, isToday, isTomorrow } from "date-fns";
 import {
   GraduationCap,
   ClipboardList,
@@ -18,6 +19,10 @@ import {
   Award,
   Search,
   Megaphone,
+  Clock3,
+  Users,
+  Video,
+  MapPin,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,6 +45,33 @@ const QUICK_ACTIONS = [
   { label: "Certificates", href: "/student/certificates", icon: Award, chip: "bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400" },
   { label: "Search Courses", href: "/student/search", icon: Search, chip: "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400" },
 ];
+
+/** "14:30" -> "2:30 PM"; anything not in HH:mm form is shown as-is. */
+function formatTime(t: string): string {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t.trim());
+  if (!m) return t;
+  const h = Number(m[1]);
+  return `${h % 12 || 12}:${m[2]} ${h < 12 ? "AM" : "PM"}`;
+}
+
+function minutesOf(t: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t.trim());
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
+type ClassStatus = "live" | "upcoming" | "done";
+
+/** Status of a class happening today, based on the viewer's local clock. */
+function todayStatus(startTime: string, endTime: string): ClassStatus {
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const start = minutesOf(startTime);
+  const end = minutesOf(endTime);
+  if (start === null || end === null) return "upcoming";
+  if (nowMin >= end) return "done";
+  if (nowMin >= start) return "live";
+  return "upcoming";
+}
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -71,6 +103,24 @@ export default function StudentDashboardPage() {
         },
       ]
     : [];
+
+  const classes = stats?.upcomingClasses ?? [];
+  const todaysClasses = classes
+    .filter((c) => isToday(new Date(c.date)))
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  // Feature the live class, else the next one today, else the last one that ended.
+  const featuredClass =
+    todaysClasses.find((c) => todayStatus(c.startTime, c.endTime) === "live") ??
+    todaysClasses.find((c) => todayStatus(c.startTime, c.endTime) === "upcoming") ??
+    todaysClasses[todaysClasses.length - 1];
+  const featuredStatus = featuredClass ? todayStatus(featuredClass.startTime, featuredClass.endTime) : null;
+  const otherTodayClasses = todaysClasses.filter(
+    (c) => c !== featuredClass && todayStatus(c.startTime, c.endTime) !== "done"
+  );
+  // Today's classes that haven't ended yet, followed by future days.
+  const upcomingClasses = classes.filter((c) =>
+    isToday(new Date(c.date)) ? todayStatus(c.startTime, c.endTime) !== "done" : isFuture(new Date(c.date))
+  );
 
   const topCourses = (enrollments ?? []).slice(0, 3);
   const continueCourseId = stats?.enrollment?.course._id ?? topCourses[0]?.course._id;
@@ -156,41 +206,106 @@ export default function StudentDashboardPage() {
         </div>
 
         <div className="flex flex-col clay p-4 lg:w-72 lg:shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Calendar className="h-4 w-4 text-secondary" />
-              <h3 className="text-sm font-semibold text-foreground">Today&apos;s Schedule</h3>
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-secondary/10 text-secondary">
+                <Calendar className="h-4 w-4" />
+              </span>
+              <div className="leading-tight">
+                <h3 className="text-sm font-semibold text-foreground">Today&apos;s Schedule</h3>
+                <p className="text-[11px] text-muted-foreground">{format(new Date(), "EEEE, d MMM")}</p>
+              </div>
             </div>
+            {todaysClasses.length > 0 && (
+              <span className="rounded-full bg-secondary/10 px-2 py-0.5 text-[10px] font-semibold text-secondary">
+                {todaysClasses.length} {todaysClasses.length === 1 ? "class" : "classes"}
+              </span>
+            )}
           </div>
 
-          <div className="flex flex-1 flex-col items-center justify-center gap-1.5 py-3 text-center">
+          <div className="flex flex-1 flex-col">
             {isLoading ? (
-              <Skeleton className="h-16 w-full" />
-            ) : stats?.upcomingClasses && stats.upcomingClasses.length > 0 ? (
-              <ul className="w-full space-y-1.5 text-left">
-                {stats.upcomingClasses.slice(0, 2).map((c) => (
-                  <li key={c._id} className="rounded-xl border border-border p-2 text-xs">
-                    <p className="truncate font-medium text-foreground">{c.topic}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">
-                      {new Date(c.date).toLocaleDateString()} · {c.startTime}–{c.endTime}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
+              <Skeleton className="h-28 w-full rounded-2xl" />
+            ) : featuredClass ? (
               <>
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0092b5] via-[#047a97] to-[#065f74] p-3.5 text-white shadow-md">
+                  <div className="bg-dot-grid pointer-events-none absolute inset-0 opacity-20" />
+                  <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10" />
+                  <div className="relative">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider">
+                      {featuredStatus === "live" ? (
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-75" />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                        </span>
+                      ) : (
+                        <Clock3 className="h-2.5 w-2.5" />
+                      )}
+                      {featuredStatus === "live" ? "Live now" : featuredStatus === "done" ? "Completed" : "Up next"}
+                    </span>
+                    <p className="mt-2 line-clamp-2 text-base font-bold capitalize leading-snug">
+                      {featuredClass.topic.toLowerCase()}
+                    </p>
+                    <div className="mt-1.5 space-y-0.5 text-[11px] text-white/85">
+                      <p className="flex items-center gap-1.5">
+                        <Clock3 className="h-3 w-3" />
+                        {formatTime(featuredClass.startTime)} – {formatTime(featuredClass.endTime)}
+                      </p>
+                      {featuredClass.batch?.name && (
+                        <p className="flex items-center gap-1.5">
+                          <Users className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{featuredClass.batch.name}</span>
+                        </p>
+                      )}
+                      {featuredClass.location && (
+                        <p className="flex items-center gap-1.5">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{featuredClass.location}</span>
+                        </p>
+                      )}
+                    </div>
+                    {featuredClass.meetingLink && featuredStatus !== "done" && (
+                      <a
+                        href={featuredClass.meetingLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-white py-1.5 text-xs font-semibold text-[#047a97] shadow-sm transition-transform hover:scale-[1.02]"
+                      >
+                        <Video className="h-3.5 w-3.5" />
+                        {featuredStatus === "live" ? "Join Class Now" : "Join Link"}
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {otherTodayClasses.length > 0 && (
+                  <ul className="mt-2.5 space-y-1">
+                    {otherTodayClasses.slice(0, 2).map((c) => (
+                      <li key={c._id} className="flex items-center gap-2 px-1.5 py-1 text-xs">
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-secondary" />
+                        <span className="w-14 shrink-0 text-[11px] font-semibold text-secondary">
+                          {formatTime(c.startTime)}
+                        </span>
+                        <span className="truncate capitalize text-foreground">{c.topic.toLowerCase()}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center gap-1.5 py-3 text-center">
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
                   <Calendar className="h-5 w-5 text-muted-foreground" />
                 </span>
                 <p className="text-xs font-medium text-foreground">No classes today</p>
                 <p className="text-[11px] text-muted-foreground">Take this time to revise or catch up.</p>
-              </>
+              </div>
             )}
           </div>
 
           <Link
             href="/student/schedule"
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-border py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+            className="mt-3 flex items-center justify-center gap-1.5 rounded-xl border border-border py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
           >
             View Full Schedule
             <ArrowRight className="h-3.5 w-3.5" />
@@ -249,38 +364,74 @@ export default function StudentDashboardPage() {
         </div>
 
         <div className="flex flex-col clay p-4 lg:w-72 lg:shrink-0">
-          <h3 className="mb-2 flex items-center justify-between text-sm font-semibold text-foreground">
-            <span>Upcoming Classes</span>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Upcoming Classes</h3>
             <Link href="/student/schedule" className="flex items-center gap-1 text-xs font-medium text-secondary hover:underline">
               View All
               <ArrowRight className="h-3 w-3" />
             </Link>
-          </h3>
-
-          <div className="flex flex-1 flex-col items-center justify-center gap-1.5 py-3 text-center">
-            {isLoading ? (
-              <Skeleton className="h-16 w-full" />
-            ) : stats && stats.upcomingClasses.length > 0 ? (
-              <ul className="w-full space-y-1.5 text-left">
-                {stats.upcomingClasses.slice(0, 2).map((c) => (
-                  <li key={c._id} className="rounded-xl border border-border p-2 text-xs">
-                    <p className="truncate font-medium text-foreground">{c.topic}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">
-                      {new Date(c.date).toLocaleDateString()} · {c.startTime}–{c.endTime}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <>
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                  <CalendarOff className="h-5 w-5 text-muted-foreground" />
-                </span>
-                <p className="text-xs font-medium text-foreground">No upcoming classes.</p>
-                <p className="text-[11px] text-muted-foreground">Enjoy your free time or work on tasks!</p>
-              </>
-            )}
           </div>
+
+          {isLoading ? (
+            <Skeleton className="h-28 w-full rounded-2xl" />
+          ) : upcomingClasses.length > 0 ? (
+            <ul className="divide-y divide-border">
+              {upcomingClasses.slice(0, 3).map((c) => {
+                const date = new Date(c.date);
+                const today = isToday(date);
+                const live = today && todayStatus(c.startTime, c.endTime) === "live";
+                return (
+                  <li key={c._id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                    <div className="w-11 shrink-0 overflow-hidden rounded-lg border border-border bg-card text-center shadow-sm">
+                      <p
+                        className={cn(
+                          "py-0.5 text-[8px] font-bold uppercase tracking-wider",
+                          live ? "bg-status-good text-white" : "bg-secondary text-secondary-foreground"
+                        )}
+                      >
+                        {today ? "Today" : format(date, "MMM")}
+                      </p>
+                      <p className="py-0.5 text-sm font-bold leading-tight text-foreground">{format(date, "d")}</p>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-semibold capitalize text-foreground">{c.topic.toLowerCase()}</p>
+                      <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                        {live ? (
+                          <span className="font-semibold text-status-good">Live now</span>
+                        ) : today ? (
+                          "Today"
+                        ) : isTomorrow(date) ? (
+                          "Tomorrow"
+                        ) : (
+                          format(date, "EEEE")
+                        )}{" "}
+                        · {formatTime(c.startTime)} – {formatTime(c.endTime)}
+                      </p>
+                    </div>
+                    {c.meetingLink && (
+                      <a
+                        href={c.meetingLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Join ${c.topic}`}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary/10 hover:text-secondary"
+                      >
+                        <Video className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center gap-1.5 py-3 text-center">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                <CalendarOff className="h-5 w-5 text-muted-foreground" />
+              </span>
+              <p className="text-xs font-medium text-foreground">No upcoming classes.</p>
+              <p className="text-[11px] text-muted-foreground">Enjoy your free time or work on tasks!</p>
+            </div>
+          )}
         </div>
       </div>
 

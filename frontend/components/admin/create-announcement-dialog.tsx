@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -223,7 +224,7 @@ export function CreateAnnouncementDialog({ open, onOpenChange }: CreateAnnouncem
                 <FormItem>
                   <FormLabel>Expires (optional)</FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} />
+                    <DatePicker {...field} showShortcuts clearable placeholder="No expiry" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -148,7 +150,7 @@ export function ClassFormDialog({
                   <FormItem>
                     <FormLabel>Date</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DatePicker {...field} showShortcuts placeholder="Select date" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -161,7 +163,7 @@ export function ClassFormDialog({
                   <FormItem>
                     <FormLabel>Start</FormLabel>
                     <FormControl>
-                      <Input type="time" {...field} />
+                      <TimePicker {...field} placeholder="Start time" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -174,7 +176,7 @@ export function ClassFormDialog({
                   <FormItem>
                     <FormLabel>End</FormLabel>
                     <FormControl>
-                      <Input type="time" {...field} />
+                      <TimePicker {...field} placeholder="End time" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

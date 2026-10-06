@@ -18,6 +18,8 @@ export interface StudentDashboardStats {
     startTime: string;
     endTime: string;
     topic: string;
+    meetingLink?: string;
+    location?: string;
   }[];
   upcomingInterviews: number;
   feeDue: number;

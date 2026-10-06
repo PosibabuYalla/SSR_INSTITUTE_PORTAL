@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import {
   Select,
   SelectContent,
@@ -183,7 +185,7 @@ export function BatchFormSheet({ open, onOpenChange, batch, isSubmitting, onSubm
                   <FormItem>
                     <FormLabel>Start date</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DatePicker {...field} placeholder="Start date" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -196,7 +198,7 @@ export function BatchFormSheet({ open, onOpenChange, batch, isSubmitting, onSubm
                   <FormItem>
                     <FormLabel>End date</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DatePicker {...field} placeholder="End date" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -209,7 +211,7 @@ export function BatchFormSheet({ open, onOpenChange, batch, isSubmitting, onSubm
                   <FormItem>
                     <FormLabel>Start time</FormLabel>
                     <FormControl>
-                      <Input type="time" {...field} />
+                      <TimePicker {...field} placeholder="Start time" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -222,7 +224,7 @@ export function BatchFormSheet({ open, onOpenChange, batch, isSubmitting, onSubm
                   <FormItem>
                     <FormLabel>End time</FormLabel>
                     <FormControl>
-                      <Input type="time" {...field} />
+                      <TimePicker {...field} placeholder="End time" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

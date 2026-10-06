@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -206,7 +207,7 @@ export function TaskFormSheet({ open, onOpenChange, batches, isSubmitting, onSub
                   <FormItem>
                     <FormLabel>Due date</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DatePicker {...field} showShortcuts placeholder="Select due date" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

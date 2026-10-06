@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -117,11 +117,12 @@ export default function TrainerAttendancePage() {
                 ))}
               </SelectContent>
             </Select>
-            <Input
-              type="date"
-              className="w-full sm:w-48"
+            <DatePicker
+              className="w-full sm:w-56"
               value={date}
-              onChange={(e) => selectDate(e.target.value)}
+              onChange={selectDate}
+              disableFuture
+              showShortcuts
             />
             <Button onClick={handleSave} disabled={!hasChanges || markMutation.isPending} className="sm:ml-auto">
               {markMutation.isPending ? "Saving..." : "Save attendance"}

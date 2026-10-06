@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -107,7 +108,7 @@ export function StudentProfileCard({ profile }: { profile: StudentProfileData | 
                     <FormItem>
                       <FormLabel>Date of birth</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <DatePicker {...field} yearNavigation disableFuture placeholder="Select date of birth" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -154,7 +155,7 @@ export function EditProfileDialog({ open, onOpenChange, user, profile }: EditPro
                       <FormItem>
                         <FormLabel>Date of birth</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} />
+                          <DatePicker {...field} yearNavigation disableFuture placeholder="Select date of birth" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
