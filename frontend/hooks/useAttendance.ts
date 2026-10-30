@@ -29,6 +29,7 @@ export function useMarkAttendance() {
     onSuccess: () => {
       toast.success("Attendance saved");
       queryClient.invalidateQueries({ queryKey: [KEY] });
+      queryClient.invalidateQueries({ queryKey: ["student-dashboard"] });
     },
     onError: (error) => toast.error(extractErrorMessage(error)),
   });

@@ -96,26 +96,26 @@ export async function refreshSession(
     throw ApiError.unauthorized("Account is not active");
   }
 
-  let refreshToken: string | null = null;
-  if (isCurrent) {
-    // Compare-and-swap: if a concurrent request rotated first, this one falls back to the
-    // grace path (its cookie jar will receive the other response's new token).
-    const secret = crypto.randomBytes(32).toString("hex");
-    const rotated = await Session.findOneAndUpdate(
-      { _id: session._id, refreshTokenHash: presented, revokedAt: { $exists: false } },
-      {
-        $set: {
-          previousRefreshTokenHash: presented,
-          refreshTokenHash: hashToken(secret),
-          rotatedAt: new Date(),
-          lastUsedAt: new Date(),
-        },
-      }
-    );
-    if (rotated) refreshToken = formatRefreshToken(session._id, secret);
-  } else {
-    await Session.updateOne({ _id: session._id }, { $set: { lastUsedAt: new Date() } });
-  }
+  // Rotate on every accepted refresh — including the grace path. A browser presenting the
+  // previous token usually means the response carrying the new cookie never arrived (e.g. a hard
+  // reload aborted the in-flight refresh). Without a fresh cookie that browser would keep the
+  // stale token and be logged out as a "reuse" on its next refresh after the grace window.
+  // Compare-and-swap on the current hash: if a concurrent request rotated first, this one
+  // returns no cookie and the browser receives the other response's token.
+  const currentHash = session.refreshTokenHash;
+  const secret = crypto.randomBytes(32).toString("hex");
+  const rotated = await Session.findOneAndUpdate(
+    { _id: session._id, refreshTokenHash: currentHash, revokedAt: { $exists: false } },
+    {
+      $set: {
+        previousRefreshTokenHash: currentHash,
+        refreshTokenHash: hashToken(secret),
+        rotatedAt: new Date(),
+        lastUsedAt: new Date(),
+      },
+    }
+  );
+  const refreshToken: string | null = rotated ? formatRefreshToken(session._id, secret) : null;
 
   return {
     accessToken: signAccessToken({

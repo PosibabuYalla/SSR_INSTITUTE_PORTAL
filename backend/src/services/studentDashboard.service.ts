@@ -12,6 +12,7 @@ import { listStudentBatchIds } from "../utils/batchAccess";
 
 export async function getStudentDashboard(studentId: string) {
   const enrollments = await Enrollment.find({ student: studentId })
+    .sort({ createdAt: 1 })
     .populate("course", "name")
     .populate("batch", "name")
     .lean();

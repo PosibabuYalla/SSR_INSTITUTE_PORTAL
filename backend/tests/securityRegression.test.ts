@@ -87,6 +87,24 @@ describe("M5 — sessions are server-side and revocable", () => {
     expect((await request(app).get("/api/v1/auth/me").set(authHeader(refreshed.body.data.accessToken))).status).toBe(200);
   });
 
+  it("heals a browser whose refresh response was lost (e.g. hard reload mid-refresh)", async () => {
+    const { user, password } = await createUser({ role: "STUDENT" });
+    const login = await request(app).post("/api/v1/auth/login").send({ email: user.email, password });
+    const stale = refreshCookieFrom(login);
+
+    // The server rotates, but the browser never receives this response's cookie.
+    expect((await request(app).post("/api/v1/auth/refresh-token").set("Cookie", stale)).status).toBe(200);
+
+    // The reloaded page presents the stale token within the grace window: it must get a fresh one…
+    const retry = await request(app).post("/api/v1/auth/refresh-token").set("Cookie", stale);
+    expect(retry.status).toBe(200);
+    const healed = refreshCookieFrom(retry);
+    expect(healed).not.toBe(stale);
+
+    // …which keeps working for later refreshes, so the user is never logged out.
+    expect((await request(app).post("/api/v1/auth/refresh-token").set("Cookie", healed)).status).toBe(200);
+  });
+
   it("password reset signs the user out of every existing session", async () => {
     const { user, token } = await createUser({ role: "STUDENT" });
     const { raw, hashed } = generateSecureToken();
